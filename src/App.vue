@@ -21,6 +21,10 @@
           </option>
         </select>
       </div>
+      <div class="model-selector">
+        <label for="model-input">输入ApiKey:</label>
+        <input id="model-input" type="text" v-model="inputApiKey" />
+        </div>
     </div>
 
     <div class="chat-container" ref="chatContainer">
@@ -148,7 +152,7 @@ const chatContainer = ref(null)
 const messageInput = ref(null)
 const uploadedFile = ref(null)
 const isUploading = ref(false)
-
+const inputApiKey = ref('')
 // 计算属性
 const canSendMessage = computed(() => {
   return userInput.value.trim().length > 0 && !isLoading.value && selectedModel.value
@@ -188,11 +192,21 @@ const scrollToBottom = async () => {
 
 const fetchModels = async () => {
   try {
-    const response = await fetch('https://botnode.wangyp.icu/api/models')
+    const response = await fetch('http://localhost:3100/api/models')
     if (response.ok) {
       models.value = await response.json()
       if (models.value.length > 0) {
         selectedModel.value = models.value[0].id
+        if(localStorage.getItem(selectedModel.value)){
+          inputApiKey.value = localStorage.getItem(selectedModel.value)
+        }
+        models.value?.forEach(model => {
+          if (localStorage.getItem(selectedModel.value)) {
+            inputApiKey.value = localStorage.getItem(selectedModel.value)
+          }else {
+            localStorage.setItem(model?.id,'')
+          }
+        });
       }
     } else {
       console.error('获取模型列表失败')
@@ -212,7 +226,7 @@ const handleFileUpload = async (event) => {
     const formData = new FormData()
     formData.append('file', file)
     
-    const response = await fetch('https://botnode.wangyp.icu/api/upload', {
+    const response = await fetch('http://localhost:3100/api/upload', {
       method: 'POST',
       body: formData
     })
@@ -274,13 +288,14 @@ const sendMessage = async () => {
   isLoading.value = true
   
   try {
-    const response = await fetch('https://botnode.wangyp.icu/api/chat', {
+    const response = await fetch('http://localhost:3100/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         modelId: selectedModel.value,
+        inputApiKey: inputApiKey.value,
         messages: messagesToSend
       })
     })
@@ -310,6 +325,7 @@ const sendMessage = async () => {
             if (parsed.content) {
               messages.value[messages.value.length - 1].content += parsed.content
               await scrollToBottom()
+              localStorage.setItem(selectedModel.value, inputApiKey.value)
             }
           } catch (e) {
             console.error('解析JSON失败:', e)
@@ -342,6 +358,11 @@ onMounted(() => {
   
   watch(userInput, () => {
     nextTick(adjustTextareaHeight)
+  })
+  watch(selectedModel,()=> {
+    if(localStorage.getItem(selectedModel.value)){
+      inputApiKey.value = localStorage.getItem(selectedModel.value)
+    }
   })
 })
 </script>
@@ -482,7 +503,17 @@ body {
   cursor: pointer;
   transition: all 0.3s ease;
 }
-
+.model-selector input {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background-color: var(--input-bg-light);
+  color: var(--text-light);
+  font-size: 1rem;
+  flex-grow: 1;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
 .dark-mode .model-selector select {
   border: 1px solid var(--border-dark);
   background-color: var(--input-bg-dark);
